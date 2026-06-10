@@ -1,5 +1,3 @@
-// lib/services/auth/auth_service.dart
-
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 
@@ -51,12 +49,12 @@ class AuthService extends Bloc<AuthEvent, AuthState> {
   final _supabase = Supabase.instance.client;
 
   String _formatPhoneNumber(String phone) {
-    phone = phone.trim();
+    phone = phone.trim().replaceAll(RegExp(r'\s+'), '');
     if (phone.startsWith('0')) {
       return '+84${phone.substring(1)}';
     }
     if (!phone.startsWith('+')) {
-      return '+84$phone'; // Mặc định là VN nếu không có dấu +
+      return '+84$phone';
     }
     return phone;
   }
@@ -67,25 +65,41 @@ class AuthService extends Bloc<AuthEvent, AuthState> {
 
       try {
         final formattedPhone = _formatPhoneNumber(event.phone);
+
         final response = await _supabase.auth.signInWithPassword(
           phone: formattedPhone,
           password: event.password,
         );
-// ... tiếp tục code cũ
 
         if (response.user != null) {
-          emit(AuthSuccess(
-            uid: response.user!.id,
-            name: response.user!.userMetadata?['username'] ?? 'User',
-            email: response.user!.email ?? '',
-            avatarPath: 'assets/tam tender.jpg',
-            memberTier: 'Thành viên Đồng',
-          ));
+          final userId = response.user!.id;
+
+          final profileData = await _supabase
+              .from('profiles')
+              .select()
+              .eq('user_id', userId)
+              .maybeSingle();
+
+          final profileUsername = profileData != null ? profileData['username'] : null;
+          final profileRole = profileData != null ? profileData['role'] : null;
+          final profileAvatar = profileData != null ? profileData['avatar_url'] : null;
+
+          emit(
+            AuthSuccess(
+              uid: userId,
+              name: profileUsername ?? response.user!.userMetadata?['username'] ?? 'Người dùng',
+              email: response.user!.email ?? '',
+              avatarPath: profileAvatar ?? 'assets/default_profile.png',
+              memberTier: profileRole ?? 'Thành viên',
+            ),
+          );
+        } else {
+          emit(AuthFailure('Không thể truy xuất thông tin người dùng.'));
         }
       } on AuthException catch (e) {
         emit(AuthFailure(e.message));
       } catch (e) {
-        emit(AuthFailure('Login failed. Please try again.'));
+        emit(AuthFailure('Số điện thoại hoặc mật khẩu không chính xác.'));
       }
     });
 
@@ -93,31 +107,58 @@ class AuthService extends Bloc<AuthEvent, AuthState> {
       emit(AuthLoading());
 
       try {
+        if (event.username.trim().isEmpty) {
+          emit(AuthFailure('Tên người dùng không được để trống.'));
+          return;
+        }
+
         final formattedPhone = _formatPhoneNumber(event.phone);
-        final response = await _supabase.auth.signUp(
-          phone: formattedPhone,
-          password: event.password,
-          data: {'username': event.username},
+
+        final functionResponse = await _supabase.functions.invoke(
+          'create-profile-from-phone',
+          body: {
+            'phone': formattedPhone,
+            'password': event.password,
+            'username': event.username.trim(),
+          },
         );
 
-        if (response.user != null) {
-          emit(AuthSuccess(
-            uid: response.user!.id,
-            name: response.user!.userMetadata?['username'] ?? event.username,
-            email: response.user!.email ?? '',
-            avatarPath: 'assets/tam tender.jpg',
-            memberTier: 'Thành viên Mới',
-          ));
+        if (functionResponse.status != 200) {
+          emit(AuthFailure('Đăng ký qua máy chủ không thành công.'));
+          return;
         }
+
+        final loginResponse = await _supabase.auth.signInWithPassword(
+          phone: formattedPhone,
+          password: event.password,
+        );
+
+        if (loginResponse.user != null) {
+          emit(
+            AuthSuccess(
+              uid: loginResponse.user!.id,
+              name: event.username.trim(),
+              email: loginResponse.user!.email ?? '',
+              avatarPath: 'assets/default_profile.png',
+              memberTier: 'Thành viên',
+            ),
+          );
+        } else {
+          emit(AuthFailure('Đăng ký thành công nhưng không thể tự động đăng nhập.'));
+        }
+      } on FunctionException catch (e) {
+        emit(AuthFailure(e.details?.toString() ?? 'Lỗi không xác định khi gọi hàm đăng ký.'));
       } on AuthException catch (e) {
         emit(AuthFailure(e.message));
       } catch (e) {
-        emit(AuthFailure('Registration failed.'));
+        emit(AuthFailure('Lỗi kết nối hệ thống trong quá trình đăng ký.'));
       }
     });
 
     on<LogoutRequested>((event, emit) async {
-      await _supabase.auth.signOut();
+      try {
+        await _supabase.auth.signOut();
+      } catch (_) {}
       emit(AuthInitial());
     });
   }
