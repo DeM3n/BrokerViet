@@ -2,6 +2,10 @@
 // the main profile screen that shows the user's information and a back button to go to the profile menu screen
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../services/auth/auth_service.dart';
+import '../../widgets/avatar_builder.dart'; // ◄ Import your shared widget helper
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -11,7 +15,6 @@ class ProfileScreen extends StatelessWidget {
     const Color primaryColor = Color(0xFF004AC6);
     const Color surfaceColor = Color(0xFFF8F9FF);
     const Color darkText = Color(0xFF0B1C30);
-    const Color bodyText = Color(0xFF434655);
     const Color outlineVariant = Color(0xFFC3C6D7);
 
     return Scaffold(
@@ -45,86 +48,97 @@ class ProfileScreen extends StatelessWidget {
           child: Container(color: outlineVariant.withOpacity(0.5), height: 1),
         ),
       ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // Centered Dynamic Avatar Profile Section Box
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: outlineVariant.withOpacity(0.3)),
-              ),
-              child: Column(
-                children: [
-                  Stack(
+      // Wrapped with BlocBuilder to consume live authenticated data snapshots safely
+      body: BlocBuilder<AuthService, AuthState>(
+        builder: (context, state) {
+          String name = 'Khách';
+          String email = 'Chưa cập nhật email';
+          String tier = 'Thành viên';
+          String avatarPath = 'assets/default_profile.png';
+
+          if (state is AuthSuccess) {
+            name = state.name;
+            email = state.email.isNotEmpty ? state.email : 'Chưa cập nhật email';
+            tier = state.memberTier;
+            avatarPath = state.avatarPath;
+          }
+
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                // Centered Dynamic Avatar Profile Section Box
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: outlineVariant.withOpacity(0.3)),
+                  ),
+                  child: Column(
                     children: [
-                      const CircleAvatar(
-                        radius: 46,
-                        backgroundColor: Color(0xFFEFF4FF),
-                        child: Text(
-                          'N',
-                          style: TextStyle(color: primaryColor, fontSize: 36, fontWeight: FontWeight.bold),
-                        ),
+                      Stack(
+                        children: [
+                          // ◄ Replaced generic character text circle with your reactive widget
+                          buildAvatar(avatarPath, radius: 46), 
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: const BoxDecoration(color: primaryColor, shape: BoxShape.circle),
+                              child: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
+                            ),
+                          )
+                        ],
                       ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: const BoxDecoration(color: primaryColor, shape: BoxShape.circle),
-                          child: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
-                        ),
-                      )
+                      const SizedBox(height: 12),
+                      Text(
+                        name,
+                        style: const TextStyle(color: darkText, fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        tier,
+                        style: const TextStyle(color: Color(0xFF434655), fontSize: 13),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Nguyễn Văn A',
-                    style: TextStyle(color: darkText, fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Tài khoản Đối tác/Khách hàng Liên kết',
-                    style: TextStyle(color: bodyText, fontSize: 13),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
+                ),
+                const SizedBox(height: 16),
 
-            // Profile Form Block 1: Contact Parameters Metadata
-            _buildInfoCardGroup(
-              title: 'Thông tin cơ bản',
-              children: [
-                _buildProfileDataRow('Họ và tên', 'Nguyễn Văn A'),
-                _buildProfileDataRow('Mã sinh viên / ID', 'FPTU-9912'),
-                _buildProfileDataRow('Ngày sinh', '01 / 01 / 2004'),
-                _buildProfileDataRow('Giới tính', 'Nam'),
-              ],
-              outlineVariant: outlineVariant,
-              darkText: darkText,
-            ),
-            const SizedBox(height: 16),
+                // Profile Form Block 1: Contact Parameters Metadata
+                _buildInfoCardGroup(
+                  title: 'Thông tin cơ bản',
+                  children: [
+                    _buildProfileDataRow('Họ và tên', name),
+                    _buildProfileDataRow('Mã thành viên', state is AuthSuccess ? 'ID: ${state.toString().padLeft(4, '0')}' : '---'),
+                    _buildProfileDataRow('Ngày sinh', 'Chưa cập nhật'),
+                    _buildProfileDataRow('Giới tính', 'Chưa cập nhật'),
+                  ],
+                  outlineVariant: outlineVariant,
+                  darkText: darkText,
+                ),
+                const SizedBox(height: 16),
 
-            // Profile Form Block 2: Communication Data Records
-            _buildInfoCardGroup(
-              title: 'Liên hệ & Xác thực',
-              children: [
-                _buildProfileDataRow('Số điện thoại', '0912 345 678'),
-                _buildProfileDataRow('Địa chỉ Email', 'anv@fe.edu.vn'),
-                _buildProfileDataRow('Địa chỉ lưu trú', 'Khu đô thị FPT City, Ngũ Hành Sơn, Đà Nẵng'),
-                _buildProfileDataRow('Trạng thái xác minh', 'Đã liên kết Ví BrokerPay', isVerified: true),
+                // Profile Form Block 2: Communication Data Records
+                _buildInfoCardGroup(
+                  title: 'Liên hệ & Xác thực',
+                  children: [
+                    _buildProfileDataRow('Số điện thoại', 'Đã liên kết'),
+                    _buildProfileDataRow('Địa chỉ Email', email),
+                    _buildProfileDataRow('Địa chỉ', 'Chưa cung cấp'),
+                    _buildProfileDataRow('Trạng thái', 'Đã xác thực tài khoản BrokerViet', isVerified: true),
+                  ],
+                  outlineVariant: outlineVariant,
+                  darkText: darkText,
+                ),
               ],
-              outlineVariant: outlineVariant,
-              darkText: darkText,
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

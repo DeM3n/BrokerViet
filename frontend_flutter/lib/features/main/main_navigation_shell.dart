@@ -1,9 +1,10 @@
 // lib/features/main/main_navigation_shell.dart
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart'; // 🟢 Added package import
+import 'package:flutter_bloc/flutter_bloc.dart'; 
 
-import '../../services/auth/auth_service.dart'; // 🟢 Added AuthService import
+import '../../services/auth/auth_service.dart'; 
+import '../../widgets/avatar_builder.dart';
 import 'service_marketplace_screen.dart';
 import '../booking/booking_history_screen.dart';
 import '../chat/chat_list_screen.dart';
@@ -28,13 +29,10 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
   @override
   Widget build(BuildContext context) {
-    // 🟢 Watch the active authentication state from your global Bloc
     final authState = context.watch<AuthService>().state;
 
-    // Fallback default avatar path in case state isn't AuthSuccess
-    String avatar = 'assets/default_avatar.png';
+    String avatar = 'assets/default_profile.png';
 
-    // 🟢 Extract the correct image string if a user session is active
     if (authState is AuthSuccess) {
       avatar = authState.avatarPath;
     }
@@ -73,11 +71,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                     MaterialPageRoute(builder: (context) => const ProfileMenuScreen()),
                   );
                 },
-                child: CircleAvatar(
-                  radius: 16,
-                  backgroundColor: const Color(0xFFEFF4FF),
-                  backgroundImage: AssetImage(avatar), // 🟢 Uses the synced avatar variable!
-                ),
+                child: buildAvatar(avatar, radius: 16), 
               ),
             ),
           ),
