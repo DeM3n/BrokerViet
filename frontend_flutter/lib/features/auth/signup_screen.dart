@@ -73,6 +73,15 @@ class SignUpScreen extends StatelessWidget {
 
                   BlocConsumer<AuthService, AuthState>(
                     listener: (context, state) {
+                      if (state is AuthSuccess) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Registration successful!'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                        Navigator.pop(context);
+                      }
                       if (state is AuthFailure) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(

@@ -39,4 +39,8 @@ public class Profile : BaseModel
 
     [Column("address")]
     public string? Address { get; set; }
+    [Column("password")]
+    public string? Password { get; set; }
+    [Column("phone_number")]
+    public string? PhoneNumber { get; set; }
 }

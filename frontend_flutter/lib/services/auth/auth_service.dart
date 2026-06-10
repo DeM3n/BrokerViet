@@ -1,6 +1,5 @@
-// lib/services/auth/auth_service.dart
-
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 
 abstract class AuthState {}
 
@@ -47,28 +46,60 @@ class SignUpRequested extends AuthEvent {
 class LogoutRequested extends AuthEvent {}
 
 class AuthService extends Bloc<AuthEvent, AuthState> {
+  final _supabase = Supabase.instance.client;
+
+  String _formatPhoneNumber(String phone) {
+    phone = phone.trim().replaceAll(RegExp(r'\s+'), '');
+    if (phone.startsWith('0')) {
+      return '+84${phone.substring(1)}';
+    }
+    if (!phone.startsWith('+')) {
+      return '+84$phone';
+    }
+    return phone;
+  }
+
   AuthService() : super(AuthInitial()) {
     on<LoginRequested>((event, emit) async {
       emit(AuthLoading());
 
       try {
-        await Future.delayed(const Duration(seconds: 2));
+        final formattedPhone = _formatPhoneNumber(event.phone);
 
-        if (event.phone == '0123' && event.password == '0123') {
+        final response = await _supabase.auth.signInWithPassword(
+          phone: formattedPhone,
+          password: event.password,
+        );
+
+        if (response.user != null) {
+          final userId = response.user!.id;
+
+          final profileData = await _supabase
+              .from('profiles')
+              .select()
+              .eq('user_id', userId)
+              .maybeSingle();
+
+          final profileUsername = profileData != null ? profileData['username'] : null;
+          final profileRole = profileData != null ? profileData['role'] : null;
+          final profileAvatar = profileData != null ? profileData['avatar_url'] : null;
+
           emit(
             AuthSuccess(
-              uid: 'USR-8821',
-              name: 'Tuấn Anh',
-              email: 'tuananh@gmail.com',
-              avatarPath: 'assets/tam tender.jpg',
-              memberTier: 'Thành viên Đồng',
+              uid: userId,
+              name: profileUsername ?? response.user!.userMetadata?['username'] ?? 'Người dùng',
+              email: response.user!.email ?? '',
+              avatarPath: profileAvatar ?? 'assets/tam tender.jpg',
+              memberTier: profileRole ?? 'Thành viên Đồng',
             ),
           );
         } else {
-          emit(AuthFailure('Số điện thoại hoặc mật khẩu không chính xác.'));
+          emit(AuthFailure('Không thể truy xuất thông tin người dùng.'));
         }
+      } on AuthException catch (e) {
+        emit(AuthFailure(e.message));
       } catch (e) {
-        emit(AuthFailure('Lỗi kết nối máy chủ. Vui lòng thử lại sau.'));
+        emit(AuthFailure('Số điện thoại hoặc mật khẩu không chính xác.'));
       }
     });
 
@@ -76,34 +107,58 @@ class AuthService extends Bloc<AuthEvent, AuthState> {
       emit(AuthLoading());
 
       try {
-        await Future.delayed(const Duration(seconds: 1));
-
-        if (event.phone == '0123') {
-          emit(
-            AuthFailure(
-              'Số điện thoại này đã được đăng ký. Vui lòng đăng nhập.',
-            ),
-          );
-        } else if (event.username.trim().isEmpty) {
+        if (event.username.trim().isEmpty) {
           emit(AuthFailure('Tên người dùng không được để trống.'));
-        } else {
+          return;
+        }
+
+        final formattedPhone = _formatPhoneNumber(event.phone);
+
+        final functionResponse = await _supabase.functions.invoke(
+          'create-profile-from-phone',
+          body: {
+            'phone': formattedPhone,
+            'password': event.password,
+            'username': event.username.trim(),
+          },
+        );
+
+        if (functionResponse.status != 200) {
+          emit(AuthFailure('Đăng ký qua máy chủ không thành công.'));
+          return;
+        }
+
+        final loginResponse = await _supabase.auth.signInWithPassword(
+          phone: formattedPhone,
+          password: event.password,
+        );
+
+        if (loginResponse.user != null) {
           emit(
             AuthSuccess(
-              uid: 'USR-8822',
-              name: event.username,
-              email:
-                  '${event.username.toLowerCase().replaceAll(' ', '')}@gmail.com',
+              uid: loginResponse.user!.id,
+              name: event.username.trim(),
+              email: loginResponse.user!.email ?? '',
               avatarPath: 'assets/tam tender.jpg',
               memberTier: 'Thành viên Mới',
             ),
           );
+        } else {
+          emit(AuthFailure('Đăng ký thành công nhưng không thể tự động đăng nhập.'));
         }
+      } on FunctionException catch (e) {
+        emit(AuthFailure(e.details?.toString() ?? 'Lỗi không xác định khi gọi hàm đăng ký.'));
+      } on AuthException catch (e) {
+        emit(AuthFailure(e.message));
       } catch (e) {
-        emit(AuthFailure('Lỗi kết nối máy chủ. Vui lòng thử lại sau.'));
+        emit(AuthFailure('Lỗi kết nối hệ thống trong quá trình đăng ký.'));
       }
     });
 
-    on<LogoutRequested>((event, emit) {
+    on<LogoutRequested>((event, emit) async {
+      try {
+        await _supabase.auth.signOut();
+      } catch (_) {}
       emit(AuthInitial());
     });
   }
