@@ -163,3 +163,4 @@ class AuthService extends Bloc<AuthEvent, AuthState> {
     });
   }
 }
+

@@ -1,7 +1,7 @@
-// lib/features/profile/account_setting.dart
-// screen for account setting, including changing password, changing email, updating info, etc
-
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../widgets/avatar_builder.dart'; // ◄ 1. Import your avatar widget file
+import '../../services/auth/auth_service.dart';  // ◄ Make sure to import your AuthService/State file path
 
 class AccountSettingScreen extends StatelessWidget {
   const AccountSettingScreen({super.key});
@@ -11,7 +11,6 @@ class AccountSettingScreen extends StatelessWidget {
     const Color primaryColor = Color(0xFF004AC6);
     const Color surfaceColor = Color(0xFFF8F9FF);
     const Color darkText = Color(0xFF0B1C30);
-    const Color bodyText = Color(0xFF434655);
     const Color outlineVariant = Color(0xFFC3C6D7);
 
     return Scaffold(
@@ -33,88 +32,126 @@ class AccountSettingScreen extends StatelessWidget {
           child: Container(color: outlineVariant.withOpacity(0.5), height: 1),
         ),
       ),
-      body: ListView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        children: [
-          // Section 1: Security Parameters
-          _buildSectionHeader('Bảo mật tài khoản'),
-          _buildSettingTile(
-            icon: Icons.lock_outline_rounded,
-            title: 'Thay đổi mật khẩu',
-            subtitle: 'Cập nhật mật khẩu định kỳ để bảo vệ tài khoản',
-            onTap: () => _showChangePasswordDialog(context),
-          ),
-          _buildSettingTile(
-            icon: Icons.phonelink_lock_rounded,
-            title: 'Xác thực 2 lớp (2FA)',
-            subtitle: 'Bảo vệ bổ sung bằng mã OTP qua số điện thoại',
-            trailing: Switch(
-              value: true,
-              activeColor: primaryColor,
-              onChanged: (bool value) {
-                // Handle 2FA state toggles here
-              },
-            ),
-          ),
-          const SizedBox(height: 16),
+      // 2. Wrap the body with a BlocBuilder to extract the current user data
+      body: BlocBuilder<AuthService, AuthState>(
+        builder: (context, state) {
+          String avatarPath = 'assets/default_profile.png';
+          String emailDisplay = 'chưa cập nhật email';
+          String phoneDisplay = 'Chưa xác thực';
 
-          // Section 2: Linked Credentials
-          _buildSectionHeader('Thông tin liên kết'),
-          _buildSettingTile(
-            icon: Icons.email_outlined,
-            title: 'Thay đổi địa chỉ Email',
-            subtitle: 'anv@fe.edu.vn',
-            onTap: () => _showChangeEmailDialog(context),
-          ),
-          _buildSettingTile(
-            icon: Icons.phone_android_rounded,
-            title: 'Thay đổi số điện thoại',
-            subtitle: '0912 **** 78 (Đã xác thực)',
-            onTap: () {},
-          ),
-          const SizedBox(height: 16),
+          if (state is AuthSuccess) {
+            avatarPath = state.avatarPath;
+            emailDisplay = state.email.isNotEmpty ? state.email : 'Chưa cập nhật email';
+            // If phone isn't tracked in AuthSuccess, you can format your display string dynamically
+          }
 
-          // Section 3: Privacy & Preferences
-          _buildSectionHeader('Quyền riêng tư & Thông báo'),
-          _buildSettingTile(
-            icon: Icons.notifications_none_rounded,
-            title: 'Thông báo ứng dụng',
-            subtitle: 'Nhận cập nhật về tiến độ sửa chữa & tin nhắn',
-            trailing: Switch(
-              value: true,
-              activeColor: primaryColor,
-              onChanged: (bool value) {},
-            ),
-          ),
-          _buildSettingTile(
-            icon: Icons.g_translate_rounded,
-            title: 'Ngôn ngữ hiển thị',
-            subtitle: 'Tiếng Việt',
-            onTap: () {},
-          ),
-          const SizedBox(height: 24),
-
-          // Section 4: Danger Zone Actions
-          _buildSectionHeader('Vùng nguy hiểm'),
-          Container(
-            color: Colors.white,
-            child: ListTile(
-              leading: Icon(Icons.delete_forever_rounded, color: Colors.red.shade700, size: 22),
-              title: Text(
-                'Yêu cầu xóa tài khoản',
-                style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.bold, fontSize: 15),
+          return ListView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            children: [
+              // 3. Header Profile Segment featuring your buildAvatar widget
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Column(
+                  children: [
+                    buildAvatar(avatarPath), // ◄ 4. Injected your widget here dynamically!
+                    const SizedBox(height: 12),
+                    if (state is AuthSuccess) ...[
+                      Text(
+                        state.name,
+                        style: const TextStyle(color: darkText, fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        state.memberTier,
+                        style: const TextStyle(color: primaryColor, fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-              subtitle: const Text('Xóa vĩnh viễn dữ liệu profile và lịch sử giao dịch', style: TextStyle(fontSize: 12)),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFFC3C6D7)),
-              onTap: () => _showDeleteAccountPrompt(context),
-            ),
-          ),
-        ],
+              const SizedBox(height: 8),
+
+              // Section 1: Security Parameters
+              _buildSectionHeader('Bảo mật tài khoản'),
+              _buildSettingTile(
+                icon: Icons.lock_outline_rounded,
+                title: 'Thay đổi mật khẩu',
+                subtitle: 'Cập nhật mật khẩu định kỳ để bảo vệ tài khoản',
+                onTap: () => _showChangePasswordDialog(context),
+              ),
+              _buildSettingTile(
+                icon: Icons.phonelink_lock_rounded,
+                title: 'Xác thực 2 lớp (2FA)',
+                subtitle: 'Bảo vệ bổ sung bằng mã OTP qua số điện thoại',
+                trailing: Switch(
+                  value: true,
+                  activeColor: primaryColor,
+                  onChanged: (bool value) {},
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Section 2: Linked Credentials (Using real BLoC state)
+              _buildSectionHeader('Thông tin liên kết'),
+              _buildSettingTile(
+                icon: Icons.email_outlined,
+                title: 'Thay đổi địa chỉ Email',
+                subtitle: emailDisplay, // ◄ Render true active email state dynamically
+                onTap: () => _showChangeEmailDialog(context),
+              ),
+              _buildSettingTile(
+                icon: Icons.phone_android_rounded,
+                title: 'Thay đổi số điện thoại',
+                subtitle: 'Đã xác thực bảo mật',
+                onTap: () {},
+              ),
+              const SizedBox(height: 16),
+
+              // Section 3: Privacy & Preferences
+              _buildSectionHeader('Quyền riêng tư & Thông báo'),
+              _buildSettingTile(
+                icon: Icons.notifications_none_rounded,
+                title: 'Thông báo ứng dụng',
+                subtitle: 'Nhận cập nhật về tiến độ sửa chữa & tin nhắn',
+                trailing: Switch(
+                  value: true,
+                  activeColor: primaryColor,
+                  onChanged: (bool value) {},
+                ),
+              ),
+              _buildSettingTile(
+                icon: Icons.g_translate_rounded,
+                title: 'Ngôn ngữ hiển thị',
+                subtitle: 'Tiếng Việt',
+                onTap: () {},
+              ),
+              const SizedBox(height: 24),
+
+              // Section 4: Danger Zone Actions
+              _buildSectionHeader('Vùng nguy hiểm'),
+              Container(
+                color: Colors.white,
+                child: ListTile(
+                  leading: Icon(Icons.delete_forever_rounded, color: Colors.red.shade700, size: 22),
+                  title: Text(
+                    'Yêu cầu xóa tài khoản',
+                    style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                  subtitle: const Text('Xóa vĩnh viễn dữ liệu profile và lịch sử giao dịch', style: TextStyle(fontSize: 12)),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFFC3C6D7)),
+                  onTap: () => _showDeleteAccountPrompt(context),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
+  // Keep your existing _buildSectionHeader, _buildSettingTile, and _show dialog helpers below unchanged...
   Widget _buildSectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -152,7 +189,6 @@ class AccountSettingScreen extends StatelessWidget {
     );
   }
 
-  // Action Drawer Dialog Mocks
   void _showChangePasswordDialog(BuildContext context) {
     showDialog(
       context: context,

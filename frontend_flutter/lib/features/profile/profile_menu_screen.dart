@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../services/auth/auth_service.dart';
+import '../../widgets/avatar_builder.dart'; // ◄ Import your shared widget helper
 import 'profile_screen.dart';
 import 'account_setting.dart';
 
@@ -12,18 +13,15 @@ class ProfileMenuScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Watch the active global state snapshot properties from AuthService
     final authState = context.watch<AuthService>().state;
 
-    // Fallback values in case state is not AuthSuccess
     String dispName = 'Khách';
     String subTitleInfo = 'Thành viên';
-    String avatar = 'assets/default_avatar.png';
+    String avatar = 'assets/default_profile.png'; // Synced base target path string
 
-    // Extract real values when state is confirmed to be AuthSuccess
     if (authState is AuthSuccess) {
       dispName = authState.name;
-      subTitleInfo = '${authState.memberTier}';
+      subTitleInfo = authState.memberTier;
       avatar = authState.avatarPath;
     }
 
@@ -45,11 +43,7 @@ class ProfileMenuScreen extends StatelessWidget {
         titleSpacing: 0,
         title: const Text(
           'Tài khoản',
-          style: TextStyle(
-            color: darkText,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: darkText, fontSize: 18, fontWeight: FontWeight.bold),
         ),
         centerTitle: false,
         bottom: PreferredSize(
@@ -66,18 +60,15 @@ class ProfileMenuScreen extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 32,
-                  backgroundColor: const Color(0xFFEFF4FF),
-                  backgroundImage: AssetImage(avatar), // Dynamic synchronized avatar asset
-                ),
+                // ◄ Integrated buildAvatar to handle local assets vs Supabase Storage URLs smoothly
+                buildAvatar(avatar, radius: 32),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        dispName, // Dynamic custom name value
+                        dispName,
                         style: const TextStyle(
                           color: darkText,
                           fontSize: 18,
@@ -86,24 +77,18 @@ class ProfileMenuScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        subTitleInfo, // Dynamic Tier and Student ID metadata
+                        subTitleInfo,
                         style: const TextStyle(color: bodyText, fontSize: 12),
                       ),
                     ],
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(
-                    Icons.arrow_forward_ios,
-                    size: 16,
-                    color: bodyText,
-                  ),
+                  icon: const Icon(Icons.arrow_forward_ios, size: 16, color: bodyText),
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => const ProfileScreen(),
-                      ),
+                      MaterialPageRoute(builder: (context) => const ProfileScreen()),
                     );
                   },
                 ),
@@ -132,9 +117,7 @@ class ProfileMenuScreen extends StatelessWidget {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const AccountSettingScreen(),
-                ),
+                MaterialPageRoute(builder: (context) => const AccountSettingScreen()),
               );
             },
           ),
@@ -151,29 +134,20 @@ class ProfileMenuScreen extends StatelessWidget {
 
           // Logout Trigger Component Action
           Container(
-            // FIXED: Moved background color inside the decoration block to stop container crashes
-            decoration: const BoxDecoration(
-              color: Colors.white,
-            ),
+            decoration: const BoxDecoration(color: Colors.white),
             margin: const EdgeInsets.only(top: 16),
             child: ListTile(
               leading: Icon(Icons.logout_rounded, color: Colors.red.shade700),
               title: Text(
                 'Đăng xuất',
-                style: TextStyle(
-                  color: Colors.red.shade700,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                ),
+                style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.bold, fontSize: 15),
               ),
               onTap: () {
                 showDialog(
                   context: context,
                   builder: (dialogContext) => AlertDialog(
                     title: const Text('Đăng xuất'),
-                    content: const Text(
-                      'Bạn có chắc chắn muốn thoát khỏi phiên làm việc?',
-                    ),
+                    content: const Text('Bạn có chắc chắn muốn thoát khỏi phiên làm việc?'),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(dialogContext),
@@ -181,13 +155,8 @@ class ProfileMenuScreen extends StatelessWidget {
                       ),
                       TextButton(
                         onPressed: () {
-                          // 1. Dismiss the confirmation alert modal safely
                           Navigator.pop(dialogContext);
-                          
-                          // 2. Pop this profile drawer menu view layer off the stack context layout cleanly
                           Navigator.pop(context);
-                          
-                          // 3. Dispatch the logout action request event directly to your existing global Bloc stream
                           context.read<AuthService>().add(LogoutRequested());
                         },
                         child: Text(
@@ -228,32 +197,18 @@ class ProfileMenuScreen extends StatelessWidget {
     required VoidCallback onTap,
   }) {
     return Container(
-      // FIXED: Kept color inside decoration structure safely
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: Color(0xFFF1F3F6), width: 0.5),
-        ),
+        border: Border(bottom: BorderSide(color: Color(0xFFF1F3F6), width: 0.5)),
       ),
       child: ListTile(
         leading: Icon(icon, color: const Color(0xFF004AC6), size: 22),
         title: Text(
           title,
-          style: const TextStyle(
-            color: Color(0xFF0B1C30),
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-          ),
+          style: const TextStyle(color: Color(0xFF0B1C30), fontSize: 15, fontWeight: FontWeight.w500),
         ),
-        subtitle: Text(
-          subtitle,
-          style: const TextStyle(color: Color(0xFF7E84A2), fontSize: 12),
-        ),
-        trailing: const Icon(
-          Icons.arrow_forward_ios,
-          size: 14,
-          color: Color(0xFFC3C6D7),
-        ),
+        subtitle: Text(subtitle, style: const TextStyle(color: Color(0xFF7E84A2), fontSize: 12)),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFFC3C6D7)),
         onTap: onTap,
       ),
     );
