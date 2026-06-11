@@ -8,6 +8,7 @@ import '../../widgets/service/category_selector.dart';
 import '../../widgets/service/nearby_provider_tile.dart';
 import '../../services/marketplace/service_marketplace_service.dart';
 import './service_detail_screen.dart';
+import './search_screen.dart';
 
 class ServiceMarketplaceScreen extends StatefulWidget {
   const ServiceMarketplaceScreen({super.key});
@@ -24,14 +25,12 @@ class _ServiceMarketplaceScreenState extends State<ServiceMarketplaceScreen> {
   List<ServiceModel> _services = [];
   bool _isLoading = false;
 
-  // Real data state derived asynchronously from Supabase backend
   List<Map<String, dynamic>> _categories = [
     {'label': 'Tất cả', 'icon': Icons.grid_view_rounded, 'id': null},
-    {'label': 'Sửa chữa thiết bị', 'icon': Icons.computer_rounded, 'id': null},
-    {'label': 'Cho thuê thiết bị', 'icon': Icons.precision_manufacturing_rounded, 'id': null},
+    {'label': 'Sửa chữa thiết bị', 'icon': Icons.precision_manufacturing_rounded, 'id': null},
+    {'label': 'Cho thuê thiết bị', 'icon': Icons.computer_rounded, 'id': null},
   ];
 
-  // Keep your structural presentation lists clean for local layout parsing
   final List<Map<String, String>> _nearbyProviders = const [
     {'name': 'TechPro VN', 'distance': 'Cách đây 0.8 km', 'score': '4.9'},
     {'name': 'Linh System', 'distance': 'Cách đây 1.2 km', 'score': '4.8'},
@@ -51,7 +50,6 @@ class _ServiceMarketplaceScreenState extends State<ServiceMarketplaceScreen> {
     super.dispose();
   }
 
-  // Fetches real custom categories from Supabase without destroying icons
   Future<void> _loadCategories() async {
     try {
       final data = await Supabase.instance.client
@@ -86,17 +84,21 @@ class _ServiceMarketplaceScreenState extends State<ServiceMarketplaceScreen> {
     }
   }
 
-  // Pulls matching marketplace service listings via your friend's backend provider hooks
   Future<void> _loadServices() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
     try {
       final activeCat = _categories[_activeCategoryIndex];
-      final categoryId = activeCat['id']?.toString();
+      
+      final String? categoryId = _activeCategoryIndex == 0 
+          ? null 
+          : activeCat['id']?.toString();
+
       final results = await _marketplaceService.searchServices(
         categoryId: categoryId,
-        search: _searchController.text,
+        search: _searchController.text.isEmpty ? null : _searchController.text,
       );
+      
       if (mounted) {
         setState(() {
           _services = results;
@@ -104,6 +106,7 @@ class _ServiceMarketplaceScreenState extends State<ServiceMarketplaceScreen> {
         });
       }
     } catch (e) {
+      print("Error fetching marketplace entries: $e");
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -121,20 +124,19 @@ class _ServiceMarketplaceScreenState extends State<ServiceMarketplaceScreen> {
         color: const Color(0xFF004AC6),
         child: ListView(
           padding: const EdgeInsets.symmetric(vertical: 16),
-          physics: const AlwaysScrollableScrollPhysics(), // Forces pull-to-refresh to work even when short
+          physics: const AlwaysScrollableScrollPhysics(),
           children: [
             _buildSearchBar(),
             const SizedBox(height: 24),
             _buildSectionHeader('Danh mục dịch vụ'),
             const SizedBox(height: 12),
             
-            // Restored your modular, gorgeous CategorySelector widget smoothly driven by dynamic DB labels
             CategorySelector(
               activeIndex: _activeCategoryIndex,
               categories: _categories,
               onCategorySelected: (index) {
                 setState(() => _activeCategoryIndex = index);
-                _loadServices(); // Instantly query live backend when tabs change
+                _loadServices();
               },
             ),
             const SizedBox(height: 24),
@@ -145,7 +147,6 @@ class _ServiceMarketplaceScreenState extends State<ServiceMarketplaceScreen> {
             ),
             const SizedBox(height: 12),
             
-            // Runs your custom rendering view but hooks directly into live queried backend data states
             _buildServicesList(_services),
           ],
         ),
@@ -156,31 +157,31 @@ class _ServiceMarketplaceScreenState extends State<ServiceMarketplaceScreen> {
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: TextField(
-        controller: _searchController,
-        onSubmitted: (_) => _loadServices(),
-        decoration: InputDecoration(
-          hintText: 'Tìm kiếm dịch vụ, sửa chữa, thuê thiết bị...',
-          prefixIcon: IconButton(
-            icon: const Icon(Icons.search, color: Color(0xFF737686)),
-            onPressed: _loadServices,
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ServiceSearchScreen(),
+            ),
+          );
+        },
+        child: AbsorbPointer(
+          child: TextField(
+            readOnly: true,
+            decoration: InputDecoration(
+              hintText: 'Tìm kiếm dịch vụ, sửa chữa, thuê thiết bị...',
+              hintStyle: const TextStyle(color: Color(0xFF737686), fontSize: 14),
+              prefixIcon: const Icon(Icons.search, color: Color(0xFF737686)),
+              filled: true,
+              fillColor: const Color(0xFFE5EEFF),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(vertical: 16),
+            ),
           ),
-          suffixIcon: _searchController.text.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.clear, color: Color(0xFF737686)),
-                  onPressed: () {
-                    _searchController.clear();
-                    _loadServices();
-                  },
-                )
-              : null,
-          filled: true,
-          fillColor: const Color(0xFFE5EEFF),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          contentPadding: const EdgeInsets.symmetric(vertical: 16),
         ),
       ),
     );
